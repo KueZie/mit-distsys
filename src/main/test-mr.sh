@@ -5,7 +5,7 @@
 #
 
 # un-comment this to run the tests with the Go race detector.
-# RACE=-race
+RACE=-race
 
 if [[ "$OSTYPE" = "darwin"* ]]
 then
@@ -94,6 +94,8 @@ sleep 1
 (maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
 (maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
 (maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
+(maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
+(maybe_quiet $TIMEOUT ../mrworker ../../mrapps/wc.so) &
 
 # wait for the coordinator to exit.
 wait $pid
@@ -112,6 +114,7 @@ fi
 
 # wait for remaining workers and coordinator to exit.
 wait
+
 
 #########################################################
 # now indexer
