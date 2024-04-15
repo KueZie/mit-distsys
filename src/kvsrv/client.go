@@ -1,13 +1,18 @@
 package kvsrv
 
-import "6.5840/labrpc"
-import "crypto/rand"
-import "math/big"
+import (
+	"crypto/rand"
+	"fmt"
+	"log"
+	"math/big"
+	"time"
 
+	"6.5840/labrpc"
+)
 
 type Clerk struct {
 	server *labrpc.ClientEnd
-	// You will have to modify this struct.
+	name	  string
 }
 
 func nrand() int64 {
@@ -20,7 +25,8 @@ func nrand() int64 {
 func MakeClerk(server *labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.server = server
-	// You'll have to add code here.
+	ck.name = fmt.Sprintf("Clerk-%v", nrand())
+
 	return ck
 }
 
@@ -35,9 +41,25 @@ func MakeClerk(server *labrpc.ClientEnd) *Clerk {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
+	args := GetArgs{Key: key, Clerk: ck.name}
+	reply := GetReply{}
 
-	// You will have to modify this function.
-	return ""
+	retry := 0
+	for {
+		ok := ck.server.Call("KVServer.Get", &args, &reply)
+		if ok {
+			break
+		}
+		ClientDebug(args.Clerk, "Get(%v) failed, no server response, retrying", key)
+		retry++
+		time.Sleep(time.Duration(retry * 10) * time.Millisecond)
+		if retry > 10 {
+			log.Fatalf("Get(%v) failed, no server response after 10 retries", key)
+		}
+	}
+
+
+	return reply.Value
 }
 
 // shared by Put and Append.
@@ -49,8 +71,30 @@ func (ck *Clerk) Get(key string) string {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) string {
-	// You will have to modify this function.
-	return ""
+	args := PutAppendArgs{Key: key, Value: value, Clerk: ck.name, MsgId: nrand()}
+	reply := PutAppendReply{}
+
+	if op != "Put" && op != "Append" {
+		log.Fatalf("PutAppend: invalid op %v\nvalid ops \"Put\" or \"Append\"", op)
+	}
+
+	rpcCall := fmt.Sprintf("KVServer.%s", op) // "KVServer.Put" or "KVServer.Append"
+
+	retry := 0
+	for {
+		ok := ck.server.Call(rpcCall, &args, &reply)
+		if ok {
+			break
+		}
+		ClientDebug(args.Clerk, "%v(%v) failed, no server response, retrying", op, key)
+		retry++
+		time.Sleep(time.Duration(retry * 10) * time.Millisecond)
+		if retry > 10 {
+			log.Panicf("%v(%v) failed, no server response after 100 retries", op, key)
+		}
+	}
+
+	return reply.Value
 }
 
 func (ck *Clerk) Put(key string, value string) {
